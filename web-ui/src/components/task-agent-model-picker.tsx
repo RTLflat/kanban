@@ -1,5 +1,5 @@
 import * as Collapsible from "@radix-ui/react-collapsible";
-import { getRuntimeLaunchSupportedAgentCatalog } from "@runtime-agent-catalog";
+import { getRuntimeAgentCatalogEntry, getRuntimeLaunchSupportedAgentCatalog } from "@runtime-agent-catalog";
 import { ChevronDown } from "lucide-react";
 import type { ReactElement } from "react";
 import { useCallback, useEffect, useMemo, useState } from "react";
@@ -229,6 +229,8 @@ export function TaskAgentModelPicker({
 	onAgentIdChange,
 	clineSettings,
 	onClineSettingsChange,
+	agentModelId,
+	onAgentModelIdChange,
 	agentOptions,
 	clineProviderOptions,
 	clineModelOptions,
@@ -246,6 +248,9 @@ export function TaskAgentModelPicker({
 	onAgentIdChange: (value: RuntimeAgentId | undefined) => void;
 	clineSettings?: RuntimeTaskClineSettings | undefined;
 	onClineSettingsChange?: (value: RuntimeTaskClineSettings | undefined) => void;
+	/** Per-task model override for CLI agents (claude, codex, ...); unset = agent default. */
+	agentModelId?: string;
+	onAgentModelIdChange?: (value: string | undefined) => void;
 	agentOptions: Array<{ value: string; label: string }>;
 	clineProviderOptions: Array<{ value: string; label: string }>;
 	clineModelOptions: Array<{ value: string; label: string }>;
@@ -283,6 +288,26 @@ export function TaskAgentModelPicker({
 	// (either explicitly overridden, or the global default provider is set)
 	const effectiveProviderId = clineProviderId ?? defaultProviderId ?? null;
 	const showClineModelPicker = showClineProviderPicker && Boolean(effectiveProviderId);
+
+	// CLI agents (claude, codex, ...) get a catalog-driven model picker instead of the Cline pickers.
+	const effectiveAgentEntry = effectiveAgentId ? getRuntimeAgentCatalogEntry(effectiveAgentId) : null;
+	const showCliModelPicker = !showClineProviderPicker && Boolean(effectiveAgentEntry?.modelFlag);
+	const [isCliModelPopoverOpen, setIsCliModelPopoverOpen] = useState(false);
+	const cliModelOptions = useMemo(() => {
+		const curated = (effectiveAgentEntry?.modelOptions ?? []).map((option) => ({
+			value: option.id,
+			label: option.label,
+		}));
+		const selected = agentModelId?.trim() ?? "";
+		const isSelectedCurated = !selected || curated.some((option) => option.value === selected);
+		return [
+			{ value: "", label: "Agent default" },
+			...curated,
+			// Keep a previously chosen custom ID visible in the dropdown button.
+			...(isSelectedCurated ? [] : [{ value: selected, label: selected }]),
+		];
+	}, [agentModelId, effectiveAgentEntry]);
+
 	const hasTaskClineSettingsOverride = clineSettings !== undefined;
 	const selectedTaskReasoningEffort = clineReasoningEffort ?? "";
 	const [isSettingsExpanded, setIsSettingsExpanded] = useState(false);
@@ -375,12 +400,13 @@ export function TaskAgentModelPicker({
 		if (!isSettingsExpanded) {
 			setIsProviderPopoverOpen(false);
 			setIsModelPopoverOpen(false);
+			setIsCliModelPopoverOpen(false);
 		}
 	}, [isSettingsExpanded]);
 
 	useEffect(() => {
-		onPopoverOpenChange?.(isProviderPopoverOpen || isModelPopoverOpen);
-	}, [isModelPopoverOpen, isProviderPopoverOpen, onPopoverOpenChange]);
+		onPopoverOpenChange?.(isProviderPopoverOpen || isModelPopoverOpen || isCliModelPopoverOpen);
+	}, [isCliModelPopoverOpen, isModelPopoverOpen, isProviderPopoverOpen, onPopoverOpenChange]);
 
 	useEffect(() => {
 		if (!selectedModelCapabilityKnown) {
@@ -473,6 +499,7 @@ export function TaskAgentModelPicker({
 								onChange={(e) => {
 									const value = e.currentTarget.value;
 									onAgentIdChange(value ? (value as RuntimeAgentId) : undefined);
+									onAgentModelIdChange?.(undefined);
 									if (value !== "cline") {
 										onClineSettingsChange?.(undefined);
 										setReasoningEffort("");
@@ -597,6 +624,28 @@ export function TaskAgentModelPicker({
 										/>
 									</div>
 								) : null}
+							</div>
+						) : null}
+						{showCliModelPicker ? (
+							<div className="w-full sm:w-1/2 min-w-0">
+								<span className="text-[11px] text-text-secondary block mb-1">Model</span>
+								<SearchSelectDropdown
+									options={cliModelOptions}
+									selectedValue={agentModelId ?? ""}
+									onSelect={(value) => {
+										const trimmed = value.trim();
+										onAgentModelIdChange?.(trimmed ? trimmed : undefined);
+									}}
+									fill
+									size="sm"
+									placeholder="Search models..."
+									emptyText="No models available"
+									noResultsText="No matching models"
+									showSelectedIndicator
+									allowCustomValue
+									customValueLabel={(query) => `Use "${query}" as model ID`}
+									onPopoverOpenChange={setIsCliModelPopoverOpen}
+								/>
 							</div>
 						) : null}
 					</div>

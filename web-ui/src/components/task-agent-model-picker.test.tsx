@@ -13,11 +13,26 @@ import type {
 const fetchClineProviderCatalogMock = vi.hoisted(() => vi.fn());
 const fetchClineProviderModelsMock = vi.hoisted(() => vi.fn());
 
+const mockAgentCatalog = [
+	{ id: "cline", label: "Cline", binary: "cline" },
+	{
+		id: "claude",
+		label: "Claude Code",
+		binary: "claude",
+		modelFlag: "--model",
+		modelOptions: [
+			{ id: "sonnet", label: "Sonnet" },
+			{ id: "opus", label: "Opus" },
+		],
+	},
+	{ id: "droid", label: "Factory Droid", binary: "droid" },
+];
+
 vi.mock("@runtime-agent-catalog", () => ({
-	getRuntimeLaunchSupportedAgentCatalog: vi.fn(() => [
-		{ id: "cline", label: "Cline", binary: "cline" },
-		{ id: "claude", label: "Claude Code", binary: "claude" },
-	]),
+	getRuntimeLaunchSupportedAgentCatalog: vi.fn(() => mockAgentCatalog),
+	getRuntimeAgentCatalogEntry: vi.fn(
+		(agentId: string) => mockAgentCatalog.find((entry) => entry.id === agentId) ?? null,
+	),
 }));
 
 vi.mock("@/runtime/runtime-config-query", () => ({
@@ -761,5 +776,75 @@ describe("TaskAgentModelPicker – inherited default reasoning effort", () => {
 
 		expect(container.textContent).toContain("GPT-5.3 Codex");
 		expect(container.textContent).not.toContain("GPT-5.3 Codex (High)");
+	});
+});
+
+describe("TaskAgentModelPicker – CLI agent model picker", () => {
+	async function renderCliPicker(props: {
+		agentId: RuntimeAgentId | undefined;
+		agentModelId?: string;
+		onAgentModelIdChange?: (value: string | undefined) => void;
+	}) {
+		const { TaskAgentModelPicker } = await import("@/components/task-agent-model-picker");
+		await act(async () =>
+			root.render(
+				<TaskAgentModelPicker
+					agentId={props.agentId}
+					onAgentIdChange={() => {}}
+					agentModelId={props.agentModelId}
+					onAgentModelIdChange={props.onAgentModelIdChange}
+					onClineSettingsChange={() => {}}
+					agentOptions={[
+						{ value: "", label: "Cline" },
+						{ value: "claude", label: "Claude Code" },
+						{ value: "droid", label: "Factory Droid" },
+					]}
+					clineProviderOptions={[]}
+					clineModelOptions={[]}
+					isLoadingProviders={false}
+					isLoadingModels={false}
+					defaultAgentId={"cline" as RuntimeAgentId}
+				/>,
+			),
+		);
+	}
+
+	function expandSettings() {
+		const trigger = Array.from(container.querySelectorAll("button")).find((button) =>
+			button.textContent?.includes("Override Agent Settings"),
+		);
+		expect(trigger).toBeDefined();
+		act(() => trigger?.click());
+	}
+
+	it("shows the model picker for a CLI agent with model metadata", async () => {
+		await renderCliPicker({ agentId: "claude" as RuntimeAgentId });
+		expandSettings();
+		expect(container.textContent).toContain("Model");
+	});
+
+	it("hides the model picker for a CLI agent without model metadata", async () => {
+		await renderCliPicker({ agentId: "droid" as RuntimeAgentId });
+		expandSettings();
+		expect(container.textContent).not.toContain("Model");
+	});
+
+	it("clears the model when the agent changes", async () => {
+		const onAgentModelIdChange = vi.fn();
+		await renderCliPicker({
+			agentId: "claude" as RuntimeAgentId,
+			agentModelId: "opus",
+			onAgentModelIdChange,
+		});
+		expandSettings();
+		const select = container.querySelector("select");
+		expect(select).not.toBeNull();
+		await act(async () => {
+			if (select) {
+				select.value = "droid";
+				select.dispatchEvent(new Event("change", { bubbles: true }));
+			}
+		});
+		expect(onAgentModelIdChange).toHaveBeenCalledWith(undefined);
 	});
 });
