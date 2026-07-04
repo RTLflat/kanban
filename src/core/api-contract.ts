@@ -143,6 +143,7 @@ export const runtimeBoardCardSchema = z
 		clineProviderId: z.string().optional(),
 		clineModelId: z.string().optional(),
 		clineReasoningEffort: runtimeLegacyTaskClineReasoningEffortSchema.optional(),
+		agentModelId: z.string().optional(),
 		baseRef: z.string(),
 		createdAt: z.number(),
 		updatedAt: z.number(),
@@ -152,6 +153,7 @@ export const runtimeBoardCardSchema = z
 			clineProviderId: _legacyProviderId,
 			clineModelId: _legacyModelId,
 			clineReasoningEffort: _legacyReasoningEffort,
+			agentModelId: rawAgentModelId,
 			...card
 		}) => {
 			const clineSettings = normalizeRuntimeTaskClineSettings({
@@ -160,9 +162,11 @@ export const runtimeBoardCardSchema = z
 				clineModelId: _legacyModelId,
 				clineReasoningEffort: _legacyReasoningEffort,
 			});
+			const agentModelId = rawAgentModelId?.trim();
 			return {
 				...card,
 				...(clineSettings !== undefined ? { clineSettings } : {}),
+				...(agentModelId ? { agentModelId } : {}),
 				title: resolveTaskTitle(card.title, card.prompt),
 			};
 		},
@@ -983,6 +987,7 @@ export const runtimeTaskSessionStartRequestSchema = z.object({
 	rows: z.number().int().positive().optional(),
 	agentId: runtimeAgentIdSchema.optional(),
 	clineSettings: runtimeTaskClineSettingsSchema.optional(),
+	agentModelId: z.string().optional(),
 });
 export type RuntimeTaskSessionStartRequest = z.infer<typeof runtimeTaskSessionStartRequestSchema>;
 

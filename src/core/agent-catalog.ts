@@ -1,5 +1,10 @@
 import type { RuntimeAgentId } from "./api-contract";
 
+export interface RuntimeAgentModelOption {
+	id: string;
+	label: string;
+}
+
 export interface RuntimeAgentCatalogEntry {
 	id: RuntimeAgentId;
 	label: string;
@@ -7,6 +12,10 @@ export interface RuntimeAgentCatalogEntry {
 	baseArgs: string[];
 	autonomousArgs: string[];
 	installUrl: string;
+	/** CLI flag used to pass a model at launch (e.g. "--model"). Absent = no per-task model support. */
+	modelFlag?: string;
+	/** Curated model list for the task card picker; users can also type a custom ID. */
+	modelOptions?: RuntimeAgentModelOption[];
 }
 
 export const RUNTIME_AGENT_CATALOG: RuntimeAgentCatalogEntry[] = [
@@ -17,6 +26,12 @@ export const RUNTIME_AGENT_CATALOG: RuntimeAgentCatalogEntry[] = [
 		baseArgs: [],
 		autonomousArgs: ["--dangerously-skip-permissions"],
 		installUrl: "https://docs.anthropic.com/en/docs/claude-code/quickstart",
+		modelFlag: "--model",
+		modelOptions: [
+			{ id: "sonnet", label: "Sonnet" },
+			{ id: "opus", label: "Opus" },
+			{ id: "haiku", label: "Haiku" },
+		],
 	},
 	{
 		id: "codex",
@@ -25,6 +40,11 @@ export const RUNTIME_AGENT_CATALOG: RuntimeAgentCatalogEntry[] = [
 		baseArgs: [],
 		autonomousArgs: ["--dangerously-bypass-approvals-and-sandbox"],
 		installUrl: "https://github.com/openai/codex",
+		modelFlag: "--model",
+		modelOptions: [
+			{ id: "gpt-5-codex", label: "GPT-5 Codex" },
+			{ id: "gpt-5", label: "GPT-5" },
+		],
 	},
 	{
 		id: "cline",
