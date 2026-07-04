@@ -818,6 +818,22 @@ describe("per-task model flag", () => {
 		expect(launch.args[launch.args.indexOf("--model") + 1]).toBe("sonnet");
 	});
 
+	it("does not duplicate an existing --model=value argument", async () => {
+		setupTempHome();
+		const launch = await prepareAgentLaunch({
+			taskId: "task-model-6",
+			agentId: "claude",
+			binary: "claude",
+			args: ["--model=sonnet"],
+			cwd: "/tmp",
+			prompt: "hello",
+			modelId: "opus",
+		});
+		expect(launch.args).not.toContain("--model");
+		expect(launch.args.filter((arg) => arg.startsWith("--model"))).toHaveLength(1);
+		expect(launch.args).toContain("--model=sonnet");
+	});
+
 	it("ignores modelId for agents without model metadata", async () => {
 		setupTempHome();
 		const launch = await prepareAgentLaunch({

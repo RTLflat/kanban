@@ -195,6 +195,11 @@ export function createRuntimeApi(deps: CreateRuntimeApiDependencies): RuntimeTrp
 				//   session-level persistence for these;
 				//   if the user changes the model on the card, the next session launch
 				//   (including trash-restore) uses the updated values.
+				//
+				// agentModelId (per-task model for CLI agents, e.g. claude/codex):
+				//   Always taken from the card's current value, like clineSettings. On
+				//   trash-restore the resumed agent may differ from the card's current
+				//   agent; a mismatched model then fails visibly in the task terminal.
 				const terminalManager = await deps.getScopedTerminalManager(workspaceScope);
 				const previousTerminalAgentId = body.resumeFromTrash
 					? (terminalManager.getSummary(body.taskId)?.agentId ?? null)
