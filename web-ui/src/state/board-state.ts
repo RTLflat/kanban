@@ -27,6 +27,7 @@ export interface TaskDraft {
 	images?: TaskImage[];
 	agentId?: RuntimeAgentId;
 	clineSettings?: RuntimeTaskClineSettings;
+	agentModelId?: string;
 	baseRef: string;
 }
 
@@ -162,6 +163,7 @@ function normalizeCard(rawCard: unknown): BoardCard | null {
 		clineProviderId?: unknown;
 		clineModelId?: unknown;
 		clineReasoningEffort?: unknown;
+		agentModelId?: unknown;
 		createdAt?: unknown;
 		updatedAt?: unknown;
 	};
@@ -199,6 +201,9 @@ function normalizeCard(rawCard: unknown): BoardCard | null {
 		baseRef,
 		...(typeof card.agentId === "string" && card.agentId ? { agentId: card.agentId as RuntimeAgentId } : {}),
 		...(clineSettings !== undefined ? { clineSettings } : {}),
+		...(typeof card.agentModelId === "string" && card.agentModelId.trim()
+			? { agentModelId: card.agentModelId.trim() }
+			: {}),
 		createdAt: typeof card.createdAt === "number" ? card.createdAt : now,
 		updatedAt: typeof card.updatedAt === "number" ? card.updatedAt : now,
 	};
@@ -346,6 +351,7 @@ export function addTaskToColumnWithResult(
 			images: draft.images,
 			agentId: draft.agentId,
 			clineSettings: draft.clineSettings,
+			agentModelId: draft.agentModelId,
 			baseRef: draft.baseRef,
 		},
 		createBrowserUuid,
@@ -544,6 +550,7 @@ export function updateTask(board: BoardData, taskId: string, draft: TaskDraft): 
 							: undefined,
 				agentId: draft.agentId,
 				clineSettings: draft.clineSettings,
+				agentModelId: draft.agentModelId,
 				baseRef,
 				updatedAt: Date.now(),
 			};
@@ -575,6 +582,7 @@ export function updateTaskTitle(
 		images: selection.card.images,
 		agentId: selection.card.agentId,
 		clineSettings: selection.card.clineSettings,
+		agentModelId: selection.card.agentModelId,
 		baseRef: selection.card.baseRef,
 	});
 }
@@ -664,6 +672,7 @@ export function disableTaskAutoReview(board: BoardData, taskId: string): { board
 		images: selection.card.images,
 		agentId: selection.card.agentId,
 		clineSettings: selection.card.clineSettings,
+		agentModelId: selection.card.agentModelId,
 		baseRef: selection.card.baseRef,
 	});
 }

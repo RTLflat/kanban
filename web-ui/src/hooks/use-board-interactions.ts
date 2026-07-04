@@ -812,6 +812,7 @@ export function useBoardInteractions({
 					images: selection.card.images,
 					agentId: selection.card.agentId,
 					clineSettings: selection.card.clineSettings,
+					agentModelId: selection.card.agentModelId,
 					baseRef: selection.card.baseRef,
 				});
 				return updated.updated ? updated.board : currentBoard;

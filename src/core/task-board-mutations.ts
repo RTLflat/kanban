@@ -21,6 +21,7 @@ export interface RuntimeCreateTaskInput {
 	images?: RuntimeTaskImage[];
 	agentId?: RuntimeAgentId;
 	clineSettings?: RuntimeTaskClineSettings;
+	agentModelId?: string;
 	baseRef: string;
 }
 
@@ -33,6 +34,7 @@ export interface RuntimeUpdateTaskInput {
 	images?: RuntimeTaskImage[];
 	agentId?: RuntimeAgentId | null;
 	clineSettings?: RuntimeTaskClineSettings | null;
+	agentModelId?: string | null;
 	baseRef: string;
 }
 
@@ -309,6 +311,7 @@ export function addTaskToColumn(
 		images: cloneTaskImages(input.images),
 		...(input.agentId ? { agentId: input.agentId } : {}),
 		...(input.clineSettings !== undefined ? { clineSettings: cloneTaskClineSettings(input.clineSettings) } : {}),
+		...(input.agentModelId ? { agentModelId: input.agentModelId } : {}),
 		baseRef,
 		createdAt: now,
 		updatedAt: now,
@@ -630,6 +633,7 @@ export function updateTask(
 						: input.clineSettings === null
 							? undefined
 							: cloneTaskClineSettings(input.clineSettings),
+				agentModelId: input.agentModelId === undefined ? card.agentModelId : (input.agentModelId ?? undefined),
 				baseRef,
 				updatedAt: now,
 			};

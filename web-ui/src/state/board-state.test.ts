@@ -13,6 +13,7 @@ import {
 	moveTaskToColumn,
 	normalizeBoardData,
 	trashTaskAndGetReadyLinkedTaskIds,
+	updateTask,
 	updateTaskTitle,
 } from "@/state/board-state";
 import type { ProgrammaticCardMoveInFlight } from "@/state/drag-rules";
@@ -867,5 +868,45 @@ describe("board dependency state", () => {
 			modelId: "anthropic/claude-opus-4.6",
 			reasoningEffort: "medium",
 		});
+	});
+});
+
+describe("agentModelId threading", () => {
+	it("persists agentModelId through create, title update, and auto-review disable", () => {
+		let board = addTaskToColumn(createInitialBoardData(), "backlog", {
+			prompt: "Model task",
+			baseRef: "main",
+			agentId: "claude",
+			agentModelId: "opus",
+		});
+		const findCard = () =>
+			board.columns.find((column) => column.id === "backlog")?.cards.find((card) => card.prompt === "Model task");
+		const created = findCard();
+		expect(created?.agentModelId).toBe("opus");
+
+		board = updateTaskTitle(board, created?.id ?? "", "Renamed").board;
+		expect(findCard()?.agentModelId).toBe("opus");
+
+		board = disableTaskAutoReview(board, created?.id ?? "").board;
+		expect(findCard()?.agentModelId).toBe("opus");
+	});
+
+	it("clears agentModelId when an update omits it", () => {
+		let board = addTaskToColumn(createInitialBoardData(), "backlog", {
+			prompt: "Model task",
+			baseRef: "main",
+			agentId: "claude",
+			agentModelId: "opus",
+		});
+		const taskId =
+			board.columns.find((column) => column.id === "backlog")?.cards.find((card) => card.prompt === "Model task")
+				?.id ?? "";
+		board = updateTask(board, taskId, {
+			prompt: "Model task",
+			startInPlanMode: false,
+			baseRef: "main",
+		}).board;
+		const card = board.columns.find((column) => column.id === "backlog")?.cards.find((task) => task.id === taskId);
+		expect(card?.agentModelId).toBeUndefined();
 	});
 });
