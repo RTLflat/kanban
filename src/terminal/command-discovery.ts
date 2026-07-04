@@ -10,13 +10,21 @@ function canAccessPath(path: string): boolean {
 	}
 }
 
-function getWindowsExecutableCandidates(binary: string): string[] {
-	const pathext = process.env.PATHEXT?.split(";").filter(Boolean) ?? [".COM", ".EXE", ".BAT", ".CMD"];
+function getWindowsPathExtensions(): string[] {
+	return process.env.PATHEXT?.split(";").filter(Boolean) ?? [".COM", ".EXE", ".BAT", ".CMD"];
+}
+
+// CreateProcess (and the node-pty backend that wraps it) cannot launch an extensionless
+// file or a bare name by itself the way a shell can: it needs a concrete, launchable
+// candidate (an explicit extension, in PATHEXT order). This intentionally excludes the
+// bare extensionless name that `getWindowsPathExtensions` callers used to also try.
+function getWindowsLaunchableCandidates(binary: string): string[] {
+	const pathext = getWindowsPathExtensions();
 	const lowerBinary = binary.toLowerCase();
 	if (pathext.some((extension) => lowerBinary.endsWith(extension.toLowerCase()))) {
 		return [binary];
 	}
-	return [binary, ...pathext.map((extension) => `${binary}${extension}`)];
+	return pathext.map((extension) => `${binary}${extension}`);
 }
 
 // Intentionally perform PATH inspection in-process instead of spawning `which`, `where`,
@@ -43,6 +51,10 @@ function getWindowsExecutableCandidates(binary: string): string[] {
 // unavailable for task-agent startup. That keeps behavior predictable and aligned with the
 // environment the Kanban process already has, instead of silently relying on hidden shell
 // side effects.
+//
+// Launchability on win32: this must agree with what can actually be spawned. An extensionless
+// file or a `.ps1` script cannot be launched directly by CreateProcess/node-pty, so on win32
+// this delegates to `resolveBinaryPathOnPath`, which only counts PATHEXT-launchable candidates.
 export function isBinaryAvailableOnPath(binary: string): boolean {
 	const trimmed = binary.trim();
 	if (!trimmed) {
@@ -52,20 +64,12 @@ export function isBinaryAvailableOnPath(binary: string): boolean {
 		return canAccessPath(trimmed);
 	}
 
-	const pathEntries = (process.env.PATH ?? "").split(delimiter).filter(Boolean);
-	if (pathEntries.length === 0) {
-		return false;
+	if (process.platform === "win32") {
+		return resolveBinaryPathOnPath(trimmed) !== null;
 	}
 
-	if (process.platform === "win32") {
-		const candidates = getWindowsExecutableCandidates(trimmed);
-		for (const entry of pathEntries) {
-			for (const candidate of candidates) {
-				if (canAccessPath(join(entry, candidate))) {
-					return true;
-				}
-			}
-		}
+	const pathEntries = (process.env.PATH ?? "").split(delimiter).filter(Boolean);
+	if (pathEntries.length === 0) {
 		return false;
 	}
 
@@ -75,4 +79,44 @@ export function isBinaryAvailableOnPath(binary: string): boolean {
 		}
 	}
 	return false;
+}
+
+// Resolves `binary` to the concrete, absolute, launchable path node-pty should spawn.
+// This exists because a bare name that resolves fine for *detection* purposes (see above)
+// is not always something CreateProcess can launch directly by that same bare name on
+// win32 — the caller needs the real file path, PATHEXT and all.
+export function resolveBinaryPathOnPath(binary: string): string | null {
+	const trimmed = binary.trim();
+	if (!trimmed) {
+		return null;
+	}
+	if (trimmed.includes("/") || trimmed.includes("\\")) {
+		return canAccessPath(trimmed) ? trimmed : null;
+	}
+
+	const pathEntries = (process.env.PATH ?? "").split(delimiter).filter(Boolean);
+	if (pathEntries.length === 0) {
+		return null;
+	}
+
+	if (process.platform === "win32") {
+		const candidates = getWindowsLaunchableCandidates(trimmed);
+		for (const entry of pathEntries) {
+			for (const candidate of candidates) {
+				const candidatePath = join(entry, candidate);
+				if (canAccessPath(candidatePath)) {
+					return candidatePath;
+				}
+			}
+		}
+		return null;
+	}
+
+	for (const entry of pathEntries) {
+		const candidatePath = join(entry, trimmed);
+		if (canAccessPath(candidatePath)) {
+			return candidatePath;
+		}
+	}
+	return null;
 }

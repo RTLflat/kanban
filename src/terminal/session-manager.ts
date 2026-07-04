@@ -203,6 +203,20 @@ function hasCodexStartupUiRendered(text: string): boolean {
 	return stripped.includes("openai codex (v");
 }
 
+// node-pty/CreateProcess cannot launch a .cmd/.bat file directly by path the way a shell can.
+// Wrap it through ComSpec so npm-installed agent shims (e.g. Codex) actually spawn on Windows.
+export function buildSpawnCommand(binary: string, args: string[]): { binary: string; args: string[] } {
+	if (process.platform !== "win32") {
+		return { binary, args };
+	}
+	const lowerBinary = binary.toLowerCase();
+	if (!lowerBinary.endsWith(".cmd") && !lowerBinary.endsWith(".bat")) {
+		return { binary, args };
+	}
+	const comSpec = process.env.ComSpec ?? "cmd.exe";
+	return { binary: comSpec, args: ["/d", "/s", "/c", binary, ...args] };
+}
+
 export class TerminalSessionManager implements TerminalSessionService {
 	private readonly entries = new Map<string, SessionEntry>();
 	private readonly summaryListeners = new Set<(summary: RuntimeTaskSessionSummary) => void>();
@@ -347,11 +361,12 @@ export class TerminalSessionManager implements TerminalSessionService {
 		const hasCodexLaunchSignature = [commandBinary, ...commandArgs].some((part) =>
 			part.toLowerCase().includes("codex"),
 		);
+		const spawnCommand = buildSpawnCommand(commandBinary, commandArgs);
 		let session: PtySession;
 		try {
 			session = PtySession.spawn({
-				binary: commandBinary,
-				args: commandArgs,
+				binary: spawnCommand.binary,
+				args: spawnCommand.args,
 				cwd: request.cwd,
 				env,
 				cols,

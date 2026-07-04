@@ -2,10 +2,12 @@ import { beforeEach, describe, expect, it, vi } from "vitest";
 
 const commandDiscoveryMocks = vi.hoisted(() => ({
 	isBinaryAvailableOnPath: vi.fn(),
+	resolveBinaryPathOnPath: vi.fn(),
 }));
 
 vi.mock("../../../src/terminal/command-discovery.js", () => ({
 	isBinaryAvailableOnPath: commandDiscoveryMocks.isBinaryAvailableOnPath,
+	resolveBinaryPathOnPath: commandDiscoveryMocks.resolveBinaryPathOnPath,
 }));
 
 import type { RuntimeConfigState } from "../../../src/config/runtime-config";
@@ -35,6 +37,8 @@ function createRuntimeConfigState(overrides: Partial<RuntimeConfigState> = {}): 
 beforeEach(() => {
 	commandDiscoveryMocks.isBinaryAvailableOnPath.mockReset();
 	commandDiscoveryMocks.isBinaryAvailableOnPath.mockReturnValue(false);
+	commandDiscoveryMocks.resolveBinaryPathOnPath.mockReset();
+	commandDiscoveryMocks.resolveBinaryPathOnPath.mockReturnValue(null);
 	delete process.env.KANBAN_DEBUG_MODE;
 	delete process.env.DEBUG_MODE;
 	delete process.env.debug_mode;
@@ -51,11 +55,24 @@ describe("agent-registry", () => {
 	});
 
 	it("treats shell-only agents as unavailable", () => {
-		commandDiscoveryMocks.isBinaryAvailableOnPath.mockImplementation((binary: string) => binary === "npx");
+		commandDiscoveryMocks.resolveBinaryPathOnPath.mockImplementation((binary: string) =>
+			binary === "npx" ? "/usr/bin/npx" : null,
+		);
 
 		const resolved = resolveAgentCommand(createRuntimeConfigState({ selectedAgentId: "claude" }));
 
 		expect(resolved).toBeNull();
+	});
+
+	it("resolves the absolute binary path returned by PATH resolution while keeping display command short", () => {
+		commandDiscoveryMocks.resolveBinaryPathOnPath.mockImplementation((binary: string) =>
+			binary === "claude" ? "/usr/local/bin/claude" : null,
+		);
+
+		const resolved = resolveAgentCommand(createRuntimeConfigState({ selectedAgentId: "claude" }));
+
+		expect(resolved?.binary).toBe("/usr/local/bin/claude");
+		expect(resolved?.command).toBe("claude");
 	});
 });
 

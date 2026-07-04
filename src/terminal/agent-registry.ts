@@ -6,7 +6,7 @@ import type {
 	RuntimeClineProviderSettings,
 	RuntimeConfigResponse,
 } from "../core/api-contract";
-import { isBinaryAvailableOnPath } from "./command-discovery";
+import { isBinaryAvailableOnPath, resolveBinaryPathOnPath } from "./command-discovery";
 
 export interface ResolvedAgentCommand {
 	agentId: RuntimeAgentId;
@@ -86,12 +86,13 @@ export function resolveAgentCommand(runtimeConfig: RuntimeConfigState): Resolved
 	}
 	const defaultArgs = getDefaultArgs(selected.id);
 	const command = joinCommand(selected.binary, defaultArgs);
-	if (isBinaryAvailableOnPath(selected.binary)) {
+	const resolvedBinaryPath = resolveBinaryPathOnPath(selected.binary);
+	if (resolvedBinaryPath) {
 		return {
 			agentId: selected.id,
 			label: selected.label,
 			command,
-			binary: selected.binary,
+			binary: resolvedBinaryPath,
 			args: defaultArgs,
 		};
 	}
