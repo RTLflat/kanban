@@ -721,4 +721,22 @@ describe("BoardCard", () => {
 		expect(container.textContent).toContain("checking the next file");
 		expect(container.textContent).not.toContain("Agent:");
 	});
+
+	describe("BoardCard – CLI agent model badge", () => {
+		async function renderBoardCard(card: ReturnType<typeof createCard>) {
+			await act(async () => {
+				root.render(<BoardCard card={card} index={0} columnId="backlog" />);
+			});
+		}
+
+		it("shows the agent label and curated model label", async () => {
+			await renderBoardCard(createCard({ agentId: "claude", agentModelId: "opus" }));
+			expect(container.textContent).toContain("Claude Code · Opus");
+		});
+
+		it("falls back to the raw model id for custom models", async () => {
+			await renderBoardCard(createCard({ agentId: "claude", agentModelId: "claude-fable-5" }));
+			expect(container.textContent).toContain("Claude Code · claude-fable-5");
+		});
+	});
 });

@@ -435,6 +435,10 @@ export function BoardCard({
 		[card.agentId],
 	);
 	const modelOverrideLabel = useMemo(() => {
+		if (card.agentModelId) {
+			const entry = card.agentId ? getRuntimeAgentCatalogEntry(card.agentId) : null;
+			return entry?.modelOptions?.find((option) => option.id === card.agentModelId)?.label ?? card.agentModelId;
+		}
 		if (card.clineSettings === undefined) {
 			return null;
 		}
@@ -461,7 +465,7 @@ export function BoardCard({
 			reasoningEffort: inheritedReasoningEffort,
 			showReasoningEffort: Boolean(inheritedReasoningEffort),
 		});
-	}, [card.clineSettings, defaultClineModelId]);
+	}, [card.agentId, card.agentModelId, card.clineSettings, defaultClineModelId]);
 	const taskAgentSettingsLabel = useMemo(() => {
 		const parts = [agentOverrideLabel, modelOverrideLabel].filter((value): value is string => Boolean(value));
 		return parts.length > 0 ? parts.join(" · ") : null;
