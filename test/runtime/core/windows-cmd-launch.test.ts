@@ -1,9 +1,14 @@
-import { mkdtempSync, rmSync, writeFileSync } from "node:fs";
+import { spawnSync } from "node:child_process";
+import { mkdirSync, mkdtempSync, rmSync, writeFileSync } from "node:fs";
 import { tmpdir } from "node:os";
 import { join } from "node:path";
 import { afterEach, describe, expect, it } from "vitest";
 
-import { shouldUseWindowsCmdLaunch } from "../../../src/core/windows-cmd-launch";
+import {
+	buildWindowsCmdArgsCommandLine,
+	resolveWindowsComSpec,
+	shouldUseWindowsCmdLaunch,
+} from "../../../src/core/windows-cmd-launch";
 
 function createWindowsBinary(directory: string, fileName: string): string {
 	const filePath = join(directory, fileName);
@@ -98,5 +103,52 @@ describe("shouldUseWindowsCmdLaunch", () => {
 				ComSpec: "C:\\Windows\\System32\\cmd.exe",
 			}),
 		).toBe(true);
+	});
+});
+
+describe("buildWindowsCmdArgsCommandLine (real cmd.exe launch)", () => {
+	const tempDirectories: string[] = [];
+
+	afterEach(() => {
+		for (const directory of tempDirectories) {
+			rmSync(directory, { recursive: true, force: true });
+		}
+		tempDirectories.length = 0;
+	});
+
+	// Regression coverage for the reviewed bug: pty-session.ts spawns
+	// `.cmd`/`.bat` binaries by resolving ComSpec + buildWindowsCmdArgsCommandLine
+	// (see shouldUseWindowsCmdLaunch usage there). A prior ComSpec wrapper that
+	// session-manager.ts applied on top of that broke absolute `.cmd` paths
+	// containing a space (e.g. under "Program Files") because cmd.exe's
+	// `/s /c` quote handling did not compose with a second layer of argv
+	// quoting. This spawns real cmd.exe with the exact helpers pty-session
+	// uses to prove a space-containing `.cmd` path launches successfully.
+	it.runIf(process.platform === "win32")("launches a .cmd file whose absolute path contains a space", () => {
+		const tempRoot = mkdtempSync(join(tmpdir(), "kanban-cmd-space-"));
+		tempDirectories.push(tempRoot);
+		const spacedDirectory = join(tempRoot, "Program Files Kanban Test");
+		mkdirSync(spacedDirectory);
+		const scriptPath = join(spacedDirectory, "agent.cmd");
+		writeFileSync(scriptPath, "@echo off\r\necho SPAWN_OK %1\r\n");
+
+		expect(shouldUseWindowsCmdLaunch(scriptPath)).toBe(true);
+
+		const comSpec = resolveWindowsComSpec();
+		const commandLine = buildWindowsCmdArgsCommandLine(scriptPath, ["hello-world"]);
+
+		// windowsVerbatimArguments mirrors how node-pty's windowsPtyAgent treats a
+		// pre-built command-line string: it appends it after the (unquoted) file
+		// path rather than re-quoting each element, so this exercises the same
+		// escaping contract pty-session relies on.
+		const result = spawnSync(comSpec, [commandLine], {
+			windowsVerbatimArguments: true,
+			encoding: "utf8",
+		});
+
+		expect(result.error).toBeUndefined();
+		expect(result.status).toBe(0);
+		expect(result.stdout).toContain("SPAWN_OK");
+		expect(result.stdout).toContain("hello-world");
 	});
 });

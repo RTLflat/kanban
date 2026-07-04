@@ -106,7 +106,7 @@ export function buildRuntimeConfigResponse(
 	const detectedCommands = detectInstalledCommands();
 	const agents = getCuratedDefinitions(runtimeConfig, detectedCommands);
 	const resolved = resolveAgentCommand(runtimeConfig);
-	const effectiveCommand = resolved ? joinCommand(resolved.binary, resolved.args) : null;
+	const effectiveCommand = resolved ? resolved.command : null;
 
 	return {
 		selectedAgentId: runtimeConfig.selectedAgentId,

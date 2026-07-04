@@ -2,7 +2,7 @@ import { describe, expect, it, vi } from "vitest";
 
 import type { RuntimeTaskSessionSummary } from "../../../src/core/api-contract";
 import { buildShellCommandLine } from "../../../src/core/shell";
-import { buildSpawnCommand, TerminalSessionManager } from "../../../src/terminal/session-manager";
+import { TerminalSessionManager } from "../../../src/terminal/session-manager";
 
 function createSummary(overrides: Partial<RuntimeTaskSessionSummary> = {}): RuntimeTaskSessionSummary {
 	return {
@@ -233,33 +233,5 @@ describe("TerminalSessionManager", () => {
 			rows: 40,
 		});
 		expect(getSnapshotSpy).toHaveBeenCalledTimes(1);
-	});
-});
-
-describe("buildSpawnCommand", () => {
-	it.runIf(process.platform === "win32")("wraps .cmd binaries in ComSpec on Windows", () => {
-		const result = buildSpawnCommand("C:\\x\\codex.cmd", ["--model", "gpt-5"]);
-
-		expect(result.binary).toBe(process.env.ComSpec ?? "cmd.exe");
-		expect(result.args).toEqual(["/d", "/s", "/c", "C:\\x\\codex.cmd", "--model", "gpt-5"]);
-	});
-
-	it.runIf(process.platform === "win32")("wraps .bat binaries in ComSpec case-insensitively on Windows", () => {
-		const result = buildSpawnCommand("C:\\x\\tool.BAT", ["arg"]);
-
-		expect(result.binary).toBe(process.env.ComSpec ?? "cmd.exe");
-		expect(result.args).toEqual(["/d", "/s", "/c", "C:\\x\\tool.BAT", "arg"]);
-	});
-
-	it.runIf(process.platform === "win32")("leaves .exe binaries unwrapped on Windows", () => {
-		const result = buildSpawnCommand("C:\\x\\claude.exe", ["--flag"]);
-
-		expect(result).toEqual({ binary: "C:\\x\\claude.exe", args: ["--flag"] });
-	});
-
-	it.runIf(process.platform !== "win32")("passes binaries through unchanged on POSIX", () => {
-		const result = buildSpawnCommand("/usr/local/bin/codex", ["--flag"]);
-
-		expect(result).toEqual({ binary: "/usr/local/bin/codex", args: ["--flag"] });
 	});
 });
