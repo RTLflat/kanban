@@ -754,3 +754,81 @@ describe("prepareAgentLaunch hook strategies", () => {
 		expect(kiroLaunch.args).toContain("--trust-all-tools");
 	});
 });
+
+describe("per-task model flag", () => {
+	it("appends the catalog model flag and value for claude", async () => {
+		setupTempHome();
+		const launch = await prepareAgentLaunch({
+			taskId: "task-model-1",
+			agentId: "claude",
+			binary: "claude",
+			args: [],
+			cwd: "/tmp",
+			prompt: "hello",
+			modelId: "opus",
+		});
+		const flagIndex = launch.args.indexOf("--model");
+		expect(flagIndex).toBeGreaterThanOrEqual(0);
+		expect(launch.args[flagIndex + 1]).toBe("opus");
+	});
+
+	it("appends --model for codex before the prompt", async () => {
+		setupTempHome();
+		const launch = await prepareAgentLaunch({
+			taskId: "task-model-2",
+			agentId: "codex",
+			binary: "codex",
+			args: [],
+			cwd: "/tmp",
+			prompt: "hello",
+			modelId: "gpt-5-codex",
+		});
+		const flagIndex = launch.args.indexOf("--model");
+		expect(flagIndex).toBeGreaterThanOrEqual(0);
+		expect(launch.args[flagIndex + 1]).toBe("gpt-5-codex");
+		expect(launch.args.indexOf("hello")).toBeGreaterThan(flagIndex);
+	});
+
+	it("trims the model and skips a blank value", async () => {
+		setupTempHome();
+		const launch = await prepareAgentLaunch({
+			taskId: "task-model-3",
+			agentId: "claude",
+			binary: "claude",
+			args: [],
+			cwd: "/tmp",
+			prompt: "hello",
+			modelId: "   ",
+		});
+		expect(launch.args).not.toContain("--model");
+	});
+
+	it("does not duplicate an existing --model argument", async () => {
+		setupTempHome();
+		const launch = await prepareAgentLaunch({
+			taskId: "task-model-4",
+			agentId: "claude",
+			binary: "claude",
+			args: ["--model", "sonnet"],
+			cwd: "/tmp",
+			prompt: "hello",
+			modelId: "opus",
+		});
+		expect(launch.args.filter((arg) => arg === "--model")).toHaveLength(1);
+		expect(launch.args[launch.args.indexOf("--model") + 1]).toBe("sonnet");
+	});
+
+	it("ignores modelId for agents without model metadata", async () => {
+		setupTempHome();
+		const launch = await prepareAgentLaunch({
+			taskId: "task-model-5",
+			agentId: "gemini",
+			binary: "gemini",
+			args: [],
+			cwd: "/tmp",
+			prompt: "hello",
+			modelId: "gpt-5",
+		});
+		expect(launch.args).not.toContain("--model");
+	});
+});

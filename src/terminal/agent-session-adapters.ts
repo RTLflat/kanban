@@ -3,6 +3,7 @@ import { homedir } from "node:os";
 import { join } from "node:path";
 import { pathToFileURL } from "node:url";
 
+import { getRuntimeAgentCatalogEntry } from "../core/agent-catalog";
 import type {
 	RuntimeAgentId,
 	RuntimeHookEvent,
@@ -30,6 +31,8 @@ export interface AgentAdapterLaunchInput {
 	agentId: RuntimeAgentId;
 	binary?: string;
 	args: string[];
+	/** Per-task model override; appended as [catalog modelFlag, modelId] when the agent supports it. */
+	modelId?: string;
 	autonomousModeEnabled?: boolean;
 	cwd: string;
 	prompt: string;
@@ -1442,8 +1445,13 @@ export async function prepareAgentLaunch(input: AgentAdapterLaunchInput): Promis
 		prompt: input.prompt,
 		images: input.images,
 	});
+	const modelId = input.modelId?.trim();
+	const modelFlag = getRuntimeAgentCatalogEntry(input.agentId)?.modelFlag;
+	const args =
+		modelId && modelFlag && !hasCliOption(input.args, modelFlag) ? [...input.args, modelFlag, modelId] : input.args;
 	return await ADAPTERS[input.agentId].prepare({
 		...input,
+		args,
 		prompt: preparedPrompt,
 	});
 }
