@@ -7,10 +7,7 @@ import { PasscodeGateProvider } from "@/components/passcode-gate";
 import { TooltipProvider } from "@/components/ui/tooltip";
 import { isThemeId } from "@/hooks/use-theme";
 import { TelemetryProvider } from "@/telemetry/posthog-provider";
-import { initializeSentry } from "@/telemetry/sentry";
 import "@/styles/globals.css";
-
-initializeSentry();
 
 // Apply the persisted theme synchronously before first paint to prevent a flash.
 try {

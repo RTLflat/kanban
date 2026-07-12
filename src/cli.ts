@@ -33,7 +33,6 @@ import {
 import { disablePasscode, generateInternalToken, generatePasscode } from "./security/passcode-manager";
 import { terminateProcessForTimeout } from "./server/process-termination";
 import type { RuntimeStateHub } from "./server/runtime-state-hub";
-import { captureNodeException, flushNodeTelemetry } from "./telemetry/sentry-node.js";
 import type { TerminalSessionManager } from "./terminal/session-manager";
 import { runOnDemandUpdate } from "./update/update";
 
@@ -643,7 +642,6 @@ async function runMainCommand(options: CliOptions, shouldAutoOpenBrowser: boolea
 		},
 		onShutdownError: (error) => {
 			shutdownIndicator.stop("failed");
-			captureNodeException(error, { area: "shutdown" });
 			const message = error instanceof Error ? error.message : String(error);
 			console.error(`Shutdown failed: ${message}`);
 		},
@@ -741,14 +739,19 @@ async function run(): Promise<void> {
 	const program = createProgram(argv);
 	await program.parseAsync(argv, { from: "user" });
 	if (!shouldAutoOpenBrowserTabForInvocation(argv)) {
-		await Promise.allSettled([disposeCliTelemetryService(), flushNodeTelemetry()]);
-		process.exit(process.exitCode ?? 0);
+		await Promise.allSettled([disposeCliTelemetryService()]);
+		// Let the event loop drain so native resources (e.g. keep-alive sockets to the runtime)
+		// tear down cleanly. Forcing process.exit() here crashes on Windows with 0xC0000409 when a
+		// socket is mid-teardown on the task-mutation path. An unref'd fallback timer force-exits
+		// only if a command genuinely leaks a handle, preserving the original anti-hang guarantee.
+		process.exitCode = process.exitCode ?? 0;
+		setTimeout(() => process.exit(process.exitCode ?? 0), 2_000).unref();
+		return;
 	}
 }
 
 void run().catch(async (error) => {
-	captureNodeException(error, { area: "startup" });
-	await Promise.allSettled([disposeCliTelemetryService(), flushNodeTelemetry()]);
+	await Promise.allSettled([disposeCliTelemetryService()]);
 	const message = error instanceof Error ? error.message : String(error);
 	console.error(`Failed to start Kanban: ${message}`);
 	process.exit(1);
