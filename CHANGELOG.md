@@ -1,5 +1,14 @@
 # Changelog
 
+## [0.1.70]
+
+- Fixed a freeze that could occur when clearing completed tasks on large boards by limiting cleanup concurrency
+
+## [0.1.69]
+
+- Claude Code autonomous tasks now run in Claude Code's built-in "auto" permission mode instead of fully bypassing permissions, for safer unattended runs
+- Updated protobufjs to 7.5.8 to clear known security vulnerabilities
+
 ## [0.1.68]
 
 - Codex hooks are now pre-trusted, eliminating permission prompts when Kanban manages Codex sessions
