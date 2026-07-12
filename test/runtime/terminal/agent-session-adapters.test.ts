@@ -4,7 +4,9 @@ import { join } from "node:path";
 
 import { afterEach, describe, expect, it } from "vitest";
 
+import { buildShellCommandLine } from "../../../src/core/shell";
 import { prepareAgentLaunch } from "../../../src/terminal/agent-session-adapters";
+import { codexSessionFlagsConfigSource } from "../../../src/terminal/codex-hook-config";
 
 const originalHome = process.env.HOME;
 const originalAppData = process.env.APPDATA;
@@ -106,11 +108,13 @@ describe("prepareAgentLaunch hook strategies", () => {
 		expect(getCodexConfigOverrideValues(launch.args, "features.codex_hooks")).toEqual([]);
 		const hookTrustState = getCodexConfigOverrideValues(launch.args, "hooks.state");
 		expect(hookTrustState).toHaveLength(1);
-		expect(hookTrustState[0]).toContain('"/<session-flags>/config.toml:user_prompt_submit:0:0"');
-		expect(hookTrustState[0]).toContain('"/<session-flags>/config.toml:stop:0:0"');
-		expect(hookTrustState[0]).toContain('"/<session-flags>/config.toml:permission_request:0:0"');
-		expect(hookTrustState[0]).toContain('"/<session-flags>/config.toml:pre_tool_use:0:0"');
-		expect(hookTrustState[0]).toContain('"/<session-flags>/config.toml:post_tool_use:0:0"');
+		// hooks.state keys are JSON-encoded, so the Windows path separators/backslashes are escaped there too.
+		const configSource = codexSessionFlagsConfigSource();
+		expect(hookTrustState[0]).toContain(JSON.stringify(`${configSource}:user_prompt_submit:0:0`));
+		expect(hookTrustState[0]).toContain(JSON.stringify(`${configSource}:stop:0:0`));
+		expect(hookTrustState[0]).toContain(JSON.stringify(`${configSource}:permission_request:0:0`));
+		expect(hookTrustState[0]).toContain(JSON.stringify(`${configSource}:pre_tool_use:0:0`));
+		expect(hookTrustState[0]).toContain(JSON.stringify(`${configSource}:post_tool_use:0:0`));
 		expect(hookTrustState[0]).toContain('trusted_hash="sha256:');
 		expect(launchCommand).toContain("timeout=5");
 		expect(launchCommand).not.toContain("codex-wrapper");
@@ -136,7 +140,7 @@ describe("prepareAgentLaunch hook strategies", () => {
 		expect(appendPromptIndex).toBeGreaterThanOrEqual(0);
 		expect(launch.args[appendPromptIndex + 1]).toContain("Kanban sidebar agent");
 		expect(launch.args[appendPromptIndex + 1]).toContain(
-			"'/usr/local/bin/node' '/Users/example/repo/dist/cli.js' task create",
+			`${buildShellCommandLine("/usr/local/bin/node", ["/Users/example/repo/dist/cli.js"])} task create`,
 		);
 	});
 
@@ -154,8 +158,12 @@ describe("prepareAgentLaunch hook strategies", () => {
 
 		const developerInstructions = getCodexConfigOverrideValues(launch.args, "developer_instructions");
 		expect(developerInstructions).toHaveLength(1);
-		expect(developerInstructions[0]).toContain("Kanban sidebar agent");
-		expect(developerInstructions[0]).toContain("'/usr/local/bin/node' '/Users/example/repo/dist/cli.js' task create");
+		// The override value is JSON.stringify(prompt); parse it back to assert on the raw prompt text.
+		const instructions = JSON.parse(developerInstructions[0]) as string;
+		expect(instructions).toContain("Kanban sidebar agent");
+		expect(instructions).toContain(
+			`${buildShellCommandLine("/usr/local/bin/node", ["/Users/example/repo/dist/cli.js"])} task create`,
+		);
 		expect(getCodexConfigOverrideValues(launch.args, "check_for_update_on_startup")).toEqual(["false"]);
 	});
 

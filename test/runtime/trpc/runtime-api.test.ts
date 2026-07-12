@@ -1,4 +1,5 @@
 import { existsSync, mkdirSync, rmSync, writeFileSync } from "node:fs";
+import { tmpdir } from "node:os";
 import { join } from "node:path";
 import { afterEach, beforeEach, describe, expect, it, vi } from "vitest";
 
@@ -256,8 +257,11 @@ describe("createRuntimeApi startTaskSession", () => {
 	let mcpOauthSettingsPath = "";
 
 	beforeEach(() => {
-		mcpSettingsPath = `/tmp/kanban-mcp-settings-${Date.now()}-${Math.random().toString(16).slice(2)}.json`;
-		mcpOauthSettingsPath = `/tmp/kanban-mcp-oauth-settings-${Date.now()}-${Math.random().toString(16).slice(2)}.json`;
+		mcpSettingsPath = join(tmpdir(), `kanban-mcp-settings-${Date.now()}-${Math.random().toString(16).slice(2)}.json`);
+		mcpOauthSettingsPath = join(
+			tmpdir(),
+			`kanban-mcp-oauth-settings-${Date.now()}-${Math.random().toString(16).slice(2)}.json`,
+		);
 		process.env.CLINE_MCP_SETTINGS_PATH = mcpSettingsPath;
 		process.env.CLINE_MCP_OAUTH_SETTINGS_PATH = mcpOauthSettingsPath;
 		agentRegistryMocks.resolveAgentCommand.mockReset();
@@ -2631,9 +2635,10 @@ describe("createRuntimeApi startTaskSession", () => {
 	});
 
 	it("runs reset teardown before deleting debug state paths", async () => {
-		const originalHome = process.env.HOME;
-		const tempHome = `/tmp/kanban-reset-home-${Date.now()}-${Math.random().toString(16).slice(2)}`;
-		process.env.HOME = tempHome;
+		const homeEnvVar = process.platform === "win32" ? "USERPROFILE" : "HOME";
+		const originalHome = process.env[homeEnvVar];
+		const tempHome = join(tmpdir(), `kanban-reset-home-${Date.now()}-${Math.random().toString(16).slice(2)}`);
+		process.env[homeEnvVar] = tempHome;
 		mkdirSync(tempHome, { recursive: true });
 		const debugPaths = [
 			join(tempHome, ".cline", "data"),
@@ -2670,18 +2675,19 @@ describe("createRuntimeApi startTaskSession", () => {
 			}
 		} finally {
 			if (originalHome === undefined) {
-				delete process.env.HOME;
+				delete process.env[homeEnvVar];
 			} else {
-				process.env.HOME = originalHome;
+				process.env[homeEnvVar] = originalHome;
 			}
 			rmSync(tempHome, { recursive: true, force: true });
 		}
 	});
 
 	it("aborts reset path deletion when teardown fails", async () => {
-		const originalHome = process.env.HOME;
-		const tempHome = `/tmp/kanban-reset-home-${Date.now()}-${Math.random().toString(16).slice(2)}`;
-		process.env.HOME = tempHome;
+		const homeEnvVar = process.platform === "win32" ? "USERPROFILE" : "HOME";
+		const originalHome = process.env[homeEnvVar];
+		const tempHome = join(tmpdir(), `kanban-reset-home-${Date.now()}-${Math.random().toString(16).slice(2)}`);
+		process.env[homeEnvVar] = tempHome;
 		mkdirSync(tempHome, { recursive: true });
 		const debugPaths = [
 			join(tempHome, ".cline", "data"),
@@ -2712,9 +2718,9 @@ describe("createRuntimeApi startTaskSession", () => {
 			}
 		} finally {
 			if (originalHome === undefined) {
-				delete process.env.HOME;
+				delete process.env[homeEnvVar];
 			} else {
-				process.env.HOME = originalHome;
+				process.env[homeEnvVar] = originalHome;
 			}
 			rmSync(tempHome, { recursive: true, force: true });
 		}

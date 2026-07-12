@@ -68,7 +68,7 @@ function buildCodexHookConfigValue(command: string, matcher?: string): string {
 	return `[{${matcherConfig}hooks=[{type="command",command=${commandConfig},timeout=${CODEX_HOOK_TIMEOUT_SECONDS}}]}]`;
 }
 
-function codexSessionFlagsConfigSource(): string {
+export function codexSessionFlagsConfigSource(): string {
 	return process.platform === "win32" ? String.raw`C:\<session-flags>\config.toml` : "/<session-flags>/config.toml";
 }
 

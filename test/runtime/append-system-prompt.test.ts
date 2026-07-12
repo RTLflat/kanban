@@ -1,5 +1,6 @@
 import { describe, expect, it } from "vitest";
 
+import { buildShellCommandLine } from "../../src/core/shell";
 import {
 	renderAppendSystemPrompt,
 	resolveAppendSystemPromptCommandPrefix,
@@ -36,7 +37,7 @@ describe("resolveAppendSystemPromptCommandPrefix", () => {
 			argv: ["node", "/Users/example/repo/dist/cli.js"],
 			resolveRealPath: (path) => path,
 		});
-		expect(prefix).toBe("'/usr/local/bin/node' '/Users/example/repo/dist/cli.js'");
+		expect(prefix).toBe(buildShellCommandLine("/usr/local/bin/node", ["/Users/example/repo/dist/cli.js"]));
 	});
 
 	it("falls back to the current runnable invocation when realpath resolution fails", () => {
@@ -50,7 +51,7 @@ describe("resolveAppendSystemPromptCommandPrefix", () => {
 				throw new Error("missing");
 			},
 		});
-		expect(prefix).toBe("'/usr/local/bin/node' '/tmp/missing-kanban-cli.js'");
+		expect(prefix).toBe(buildShellCommandLine("/usr/local/bin/node", ["/tmp/missing-kanban-cli.js"]));
 	});
 });
 
@@ -101,7 +102,9 @@ describe("resolveHomeAgentAppendSystemPrompt", () => {
 			resolveRealPath: (path) => path,
 		});
 		expect(prompt).toContain("Kanban sidebar agent");
-		expect(prompt).toContain("'/usr/local/bin/node' '/Users/example/repo/dist/cli.js' task list");
+		expect(prompt).toContain(
+			`${buildShellCommandLine("/usr/local/bin/node", ["/Users/example/repo/dist/cli.js"])} task list`,
+		);
 		expect(prompt).toContain("Current home agent: `codex`");
 		expect(prompt).toContain("codex mcp add linear --url https://mcp.linear.app/mcp");
 		expect(prompt).not.toContain("claude mcp add --transport http --scope user linear https://mcp.linear.app/mcp");
